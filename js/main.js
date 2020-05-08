@@ -28,8 +28,12 @@ const buttonAuth = document.querySelector('.button-auth'),
     restaurantTitle = document.querySelector('.restaurant-title'),
     ratingHeading = document.querySelector('.rating-heading'),
     priceHeading = document.querySelector('.price-heading'),
-    categoryHeading = document.querySelector('.category-heading');
+    categoryHeading = document.querySelector('.category-heading'),
+    modalBody = document.querySelector('.modal-body'),
+    modalPriceTag = document.querySelector('.modal-pricetag'),
+    buttonClearCart = document.querySelector('.clear-cart');
 
+let cart = [];
 
 let login = localStorage.getItem('deliveryLogin');
 
@@ -72,7 +76,7 @@ const authorized = () => {
         localStorage.removeItem('deliveryLogin');
         checkAuth();
     }
-
+    cartButton.style.display = 'flex';
     buttonOut.addEventListener('click', logOut);
 
 
@@ -81,6 +85,7 @@ const authorized = () => {
 const notAuthorized = () => {
     //console.log('не авторизован');
     buttonAuth.style.display = '';
+    cartButton.style.display = '';
 
     function logIn(event) {
         event.preventDefault();
@@ -159,11 +164,11 @@ const createCardGood = (good) => {
                                 </div>
                             </div>
                             <div class="card-buttons">
-                                <button class="button button-primary button-add-cart">
+                                <button class="button button-primary button-add-cart" id="${good.id}">
                                     <span class="button-card-text">В корзину</span>
                                     <span class="button-cart-svg"></span>
                                 </button>
-                                <strong class="card-price-bold">${good.price} ₽</strong>
+                                <strong class="card-price card-price-bold">${good.price} ₽</strong>
                             </div>
                         </div>
     `);
@@ -177,7 +182,7 @@ const openGoods = (e) => {
     //console.log(restaurant);
 
     if (restaurant) {
-        window.scrollTo(0,0);
+        window.scrollTo(0, 0);
         restaurants.classList.add('hide');
         containerPromo.classList.add('hide');
         menu.classList.remove('hide');
@@ -187,16 +192,92 @@ const openGoods = (e) => {
         getData(`./db/${restaurant.dataset.products}`).then(function(data) {
             data.forEach(createCardGood);
 
-        restaurantTitle.textContent = (restaurant.querySelector('.card-title')).textContent;
-        ratingHeading.textContent = (restaurant.querySelector('.rating')).textContent;
-        priceHeading.textContent = (restaurant.querySelector('.price')).textContent;
-        categoryHeading.textContent = (restaurant.querySelector('.category')).textContent;
+            restaurantTitle.textContent = (restaurant.querySelector('.card-title')).textContent;
+            ratingHeading.textContent = (restaurant.querySelector('.rating')).textContent;
+            priceHeading.textContent = (restaurant.querySelector('.price')).textContent;
+            categoryHeading.textContent = (restaurant.querySelector('.category')).textContent;
         });
 
 
     }
 };
 
+
+const addToCart = (event) => {
+    const target = event.target;
+
+    const buttonAddToCart = target.closest('.button-add-cart');
+
+    if (buttonAddToCart) {
+        const card = target.closest('.card');
+        const title = card.querySelector('.card-title-reg').textContent;
+        const cost = card.querySelector('.card-price').textContent;
+        const id = buttonAddToCart.id;
+
+        const food = cart.find((item) => (item.id === id));
+
+        if (food)
+            food.count += 1;
+        else
+            cart.push({
+                id,
+                title,
+                cost,
+                count: 1
+            });
+    }
+}
+
+
+const renderCart = () => {
+    modalBody.textContent = '';
+
+    for (let i = 0; i < cart.length; i++) {
+        const itemCard = `
+                <div class="food-row">
+                    <span class="food-name">${cart[i].title}</span>
+                    <strong class="food-price">${cart[i].cost}</strong>
+                    <div class="food-counter">
+                        <button class="counter-button counter-minus" data-id="${cart[i].id}">-</button>
+                        <span class="counter">${cart[i].count}</span>
+                        <button class="counter-button counter-plus" data-id="${cart[i].id}">+</button>
+                    </div>
+                </div>
+                        `;
+        modalBody.insertAdjacentHTML('beforeend', itemCard);
+    }
+
+
+    const totalPrice = cart.reduce(function(result, item) {
+        return result + parseFloat(item.cost) * parseFloat(item.count);
+    }, 0);
+
+
+    modalPriceTag.textContent = totalPrice + '₽';
+}
+
+
+const changeCount = (event) => {
+    const target = event.target;
+
+    if (target.classList.contains('counter-button')) {
+        const food = cart.find(function(item) {
+            return item.id === target.dataset.id;
+        });
+
+        if (target.classList.contains('counter-plus'))
+            food.count++;
+        if (target.classList.contains('counter-minus'))
+            {
+                food.count--;
+                if (food.count === 0)
+                    cart.splice(cart.indexOf(food),1);
+            }
+
+        renderCart();
+    }
+
+}
 
 
 
@@ -208,13 +289,23 @@ const init = () => {
 
     cardsRestaurants.addEventListener('click', openGoods);
 
+    cardsMenu.addEventListener('click', addToCart);
+
     logo.addEventListener('click', () => {
         restaurants.classList.remove('hide');
         containerPromo.classList.remove('hide');
         menu.classList.add('hide');
     });
 
-    cartButton.addEventListener("click", toggleModal);
+    cartButton.addEventListener("click", () => {
+        toggleModal();
+        renderCart();
+    });
+    buttonClearCart.addEventListener('click',()=>{
+        cart.length = 0;
+        renderCart();
+    });
+    modalBody.addEventListener('click', changeCount);
     close.addEventListener("click", toggleModal);
 };
 
